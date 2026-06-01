@@ -3,6 +3,7 @@
 import React from "react";
 import { Button } from "../ui/Button";
 import { CheckCircle2, ChevronRight } from "lucide-react";
+import Button from "../ui/Button";
 
 export interface PassedProposal {
   id: string;

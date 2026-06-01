@@ -6,6 +6,7 @@ import { Loader2, Wallet, ArrowUpRight } from "lucide-react";
 import { Button } from "../ui/Button";
 import { useWalletBalances } from "../../hooks/useWalletCache";
 import { env } from "../../lib/env";
+import Skeleton from "../ui/Skeleton";
 
 const WalletBalanceCard: React.FC = () => {
   const { address, network, isConnected, isLoading } = useWallet();
@@ -32,14 +33,10 @@ const WalletBalanceCard: React.FC = () => {
   if ((isLoading || isBalancesLoading) && balances.length === 0) {
     return (
       <div className="bg-[#0e2330] border border-white/5 rounded-2xl p-6 min-h-[300px]">
-        <div className="mb-4 inline-flex items-center gap-2 text-xs text-[#6a9fae]">
-          <Loader2 size={14} className="animate-spin text-[#08c1c1]" />
-          Loading wallet balances...
-        </div>
-        <div className="h-6 w-32 bg-white/5 rounded mb-6"></div>
+        <Skeleton className="h-5 w-32 mb-6" />
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-16 bg-white/5 rounded-xl animate-pulse"></div>
+            <Skeleton key={i} className="h-16 rounded-xl" />
           ))}
         </div>
       </div>

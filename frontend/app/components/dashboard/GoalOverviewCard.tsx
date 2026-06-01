@@ -11,6 +11,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import CircularProgress from "./CircularProgress";
+import Button from "../ui/Button";
 
 interface Milestone {
   label: string;
@@ -228,6 +229,22 @@ const GoalOverviewCard: React.FC<GoalOverviewCardProps> = ({
               <PlusCircle size={16} />
               Add Funds
             </Button>
+        <Button
+          variant="ghost"
+          size="md"
+          onClick={onEditGoal}
+          leftIcon={<Edit3 size={16} />}
+        >
+          Edit Goal
+        </Button>
+        <Button
+          variant="primary"
+          size="md"
+          onClick={onAddFunds}
+          leftIcon={<PlusCircle size={16} />}
+        >
+          Add Funds
+        </Button>
       </div>
     </div>
   );

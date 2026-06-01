@@ -18,6 +18,7 @@ import {
 import { Horizon } from "@stellar/stellar-sdk";
 import { env } from "../lib/env";
 import { queryClient } from "./QueryProvider";
+import { usePrices, getAssetPrice } from "../hooks/usePrices";
 
 interface Balance {
   asset_code: string;
@@ -59,6 +60,19 @@ const COINGECKO_IDS: Record<string, string> = {
 };
 
 const STORAGE_KEY = "nestera_wallet_network";
+export function WalletProvider({ children }: { children: React.ReactNode }) {
+  const [state, setState] = useState<WalletState>({
+    address: null,
+    network: null,
+    isConnected: false,
+    isLoading: false,
+    isBalancesLoading: false,
+    error: null,
+    balanceError: null,
+    balances: [],
+    totalUsdValue: 0,
+    lastBalanceSync: null,
+  });
 
 const INITIAL_STATE: WalletState = {
   address: null,
@@ -81,8 +95,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const disconnectCheckInterval = useRef<NodeJS.Timeout | null>(null);
   const connectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const getHorizonUrl = (network: string | null) =>
-    network?.toLowerCase() === "public" ? env.horizonPublic : env.horizonTestnet;
+  // Use React Query for cached prices (updates every 5 minutes)
+  const { data: prices } = usePrices();
+
+  const getHorizonUrl = (network: string | null) => {
+    return network?.toLowerCase() === "public"
+      ? env.horizonPublic
+      : env.horizonTestnet;
+  };
 
   const fetchBalances = useCallback(async () => {
     if (!state.address) {
@@ -126,6 +146,24 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         },
         staleTime: 30_000,
         cacheTime: 300_000,
+      const horizonUrl = getHorizonUrl(state.network);
+      const server = new Horizon.Server(horizonUrl);
+      const account = await server.loadAccount(state.address);
+
+      let totalUsd = 0;
+      const balances: Balance[] = account.balances.map((b: any) => {
+        const code = b.asset_type === "native" ? "XLM" : b.asset_code;
+        const price = getAssetPrice(prices, code);
+        const usdValue = parseFloat(b.balance) * price;
+        totalUsd += usdValue;
+
+        return {
+          asset_code: code,
+          balance: b.balance,
+          asset_type: b.asset_type,
+          asset_issuer: b.asset_issuer,
+          usd_value: usdValue,
+        };
       });
 
       setState((s) => ({
@@ -143,7 +181,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         balanceError: err instanceof Error ? err.message : "Unable to refresh wallet balances.",
       }));
     }
-  }, [state.address, state.network]);
+  }, [state.address, state.network, prices]);
 
   // Restore session on mount
   useEffect(() => {
@@ -218,6 +256,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (state.address) {
       fetchBalances();
+  // Fetch balances when address changes (prices come from React Query cache)
+  useEffect(() => {
+    if (state.address) {
+      fetchBalances();
+
+      // Poll balances every 30 seconds (prices are cached separately)
       if (refreshInterval.current) clearInterval(refreshInterval.current);
       refreshInterval.current = setInterval(fetchBalances, 30000);
     } else {

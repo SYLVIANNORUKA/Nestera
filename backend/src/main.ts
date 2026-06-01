@@ -6,6 +6,7 @@ import * as helmet from 'helmet';
 import * as compression from 'compression';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
+import { ValidationExceptionFilter } from './common/filters/validation-exception.filter';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import {
   VersioningMiddleware,
@@ -31,6 +32,41 @@ async function bootstrap() {
     type: VersioningType.URI,
     defaultVersion: CURRENT_VERSION,
   });
+
+  // Configure CORS
+  const allowedOriginsString = configService.get<string>('ALLOWED_ORIGINS') || '';
+  const allowedOrigins = allowedOriginsString.split(',').map((origin) => origin.trim()).filter(Boolean);
+  const isProduction = configService.get<string>('NODE_ENV') === 'production';
+
+  app.enableCors({
+    origin: (origin, callback) => {
+      // Allow all origins in non-production, or if ALLOWED_ORIGINS contains '*' or is not set
+      if (!isProduction || !origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*') || allowedOrigins.length === 0) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Version'],
+    exposedHeaders: ['X-Deprecated-Version', 'X-Sunset-Date'],
+  });
+  // CORS configuration — environment-based allowed origins
+  const corsOrigins = configService.get<string[]>('cors.origins');
+  const corsEnabled = configService.get<boolean>('cors.enabled');
+  if (corsEnabled) {
+    app.enableCors({
+      origin: corsOrigins,
+      methods: configService.get<string[]>('cors.methods'),
+      allowedHeaders: configService.get<string[]>('cors.allowedHeaders'),
+      credentials: configService.get<boolean>('cors.credentials'),
+      maxAge: configService.get<number>('cors.maxAge'),
+    });
+    logger.log(`CORS enabled for origins: ${corsOrigins.join(', ')}`);
+  } else {
+    logger.warn('CORS is disabled — not recommended for production');
+  }
 
   // Apply security headers middleware
   app.use(helmet.default());
@@ -66,12 +102,17 @@ async function bootstrap() {
   const versionAnalytics = app.get(VersionAnalyticsService);
   app.useGlobalInterceptors(new VersionAnalyticsInterceptor(versionAnalytics));
 
-  app.useGlobalFilters(new AllExceptionsFilter());
+  // Filters applied in reverse order; ValidationExceptionFilter handles BadRequestException first
+  app.useGlobalFilters(new AllExceptionsFilter(), new ValidationExceptionFilter());
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      exceptionFactory: (errors) => {
+        const { BadRequestException } = require('@nestjs/common');
+        return new BadRequestException(errors);
+      },
     }),
   );
 

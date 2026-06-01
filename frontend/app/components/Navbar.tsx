@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Wallet } from "lucide-react";
@@ -8,6 +8,7 @@ import ThemeToggle from "./ThemeToggle";
 import { useWallet } from "../context/WalletContext";
 import { useToast } from "../context/ToastContext";
 import { Button } from "./ui/Button";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 
 interface NavLink {
   label: string;
@@ -37,6 +38,10 @@ const Navbar: React.FC = () => {
   const { address, network, isConnected, isLoading, error, connect } = useWallet();
   const toast = useToast();
   const previousConnectedRef = useRef(isConnected);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+
+  const closeMenu = useCallback(() => setIsMobileMenuOpen(false), []);
 
   const isActiveLink = (href: string): boolean => {
     return pathname === href || pathname?.startsWith(href + "/") || false;
@@ -45,6 +50,45 @@ const Navbar: React.FC = () => {
   const shortAddress = address
     ? `${address.slice(0, 4)}...${address.slice(-4)}`
     : null;
+
+  // Focus trap inside mobile menu
+  useFocusTrap({
+    isOpen: isMobileMenuOpen,
+    containerRef: menuRef,
+    onEscape: closeMenu,
+  });
+
+  // Body scroll lock when menu is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobileMenuOpen]);
+
+  // Click-outside to close
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(target) &&
+        menuButtonRef.current &&
+        !menuButtonRef.current.contains(target)
+      ) {
+        closeMenu();
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isMobileMenuOpen, closeMenu]);
 
   useEffect(() => {
     if (error) {
@@ -91,7 +135,10 @@ const Navbar: React.FC = () => {
   };
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-nav)]/95 backdrop-blur-xl">
+    <nav
+      className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-nav)]/95 backdrop-blur-xl"
+      aria-label="Main navigation"
+    >
       <div className="w-full">
         <div className="flex h-16 items-center justify-between px-4 sm:px-6 md:px-[30px]">
           <div className="shrink-0">
@@ -127,10 +174,14 @@ const Navbar: React.FC = () => {
             <Button
               variant="secondary"
               size="sm"
+            <button
+              ref={menuButtonRef}
+              type="button"
               onClick={() => setIsMobileMenuOpen((open) => !open)}
               className="md:hidden p-2"
               aria-expanded={isMobileMenuOpen}
-              aria-label="Toggle navigation menu"
+              aria-controls="mobile-menu"
+              aria-label={isMobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
             >
               {isMobileMenuOpen ? (
                 <svg
@@ -138,6 +189,7 @@ const Navbar: React.FC = () => {
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
+                  aria-hidden="true"
                 >
                   <path
                     strokeLinecap="round"
@@ -151,6 +203,7 @@ const Navbar: React.FC = () => {
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
+                  aria-hidden="true"
                 >
                   <path
                     strokeLinecap="round"
@@ -164,7 +217,13 @@ const Navbar: React.FC = () => {
         </div>
       </div>
 
+      {/* Mobile menu */}
       <div
+        id="mobile-menu"
+        ref={menuRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Navigation menu"
         className={`border-t border-[var(--color-border)] bg-[var(--color-nav)] shadow-lg md:hidden ${isMobileMenuOpen ? "block" : "hidden"}`}
       >
         <div className="flex flex-col gap-2 p-3 pb-4">
@@ -174,7 +233,7 @@ const Navbar: React.FC = () => {
               key={link.href}
               href={link.href}
               className={isActiveLink(link.href) ? `${mobileLinkBase} ${mobileLinkActive}` : mobileLinkBase}
-              onClick={() => setIsMobileMenuOpen(false)}
+              onClick={closeMenu}
             >
               {link.label}
             </Link>

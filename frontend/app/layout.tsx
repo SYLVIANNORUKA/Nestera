@@ -6,6 +6,9 @@ import { WalletProvider } from "./context/WalletContext";
 import { ToastProvider } from "./context/ToastContext";
 import { WalletReconnectBanner } from "./components/WalletReconnectBanner";
 import { QueryProvider } from "./context/QueryProvider";
+import QueryProvider from "./providers/QueryProvider";
+import ErrorBoundary from "./components/ErrorBoundary";
+import KeyboardShortcutsProvider from "./providers/KeyboardShortcutsProvider";
 
 const BASE_URL = "https://nestera.app";
 
