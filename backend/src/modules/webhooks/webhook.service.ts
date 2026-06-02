@@ -42,7 +42,11 @@ export class WebhookService {
     dto: CreateWebhookDto,
   ): Promise<WebhookSubscription> {
     const secret = dto.secret ?? crypto.randomBytes(32).toString('hex');
-    const sub = this.subRepo.create({ ...dto, userId, secret });
+    const sub: WebhookSubscription = this.subRepo.create({
+      ...dto,
+      userId,
+      secret,
+    });
     return this.subRepo.save(sub);
   }
 
@@ -104,10 +108,11 @@ export class WebhookService {
     sub?: WebhookSubscription,
   ): Promise<void> {
     if (!sub) {
-      sub = await this.subRepo.findOne({
+      const found = await this.subRepo.findOne({
         where: { id: delivery.subscriptionId },
       });
-      if (!sub) return;
+      if (!found) return;
+      sub = found;
     }
 
     delivery.attempts += 1;
