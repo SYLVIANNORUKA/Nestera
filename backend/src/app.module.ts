@@ -53,8 +53,7 @@ import { JobsModule } from './modules/jobs/jobs.module';
 import { GracefulShutdownService } from './common/services/graceful-shutdown.service';
 import { ApmModule } from './modules/apm/apm.module';
 import { PerformanceModule } from './modules/performance/performance.module';
-import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module';
-import { StatisticsModule } from './modules/statistics/statistics.module';
+import { SandboxModule } from './modules/sandbox/sandbox.module';
 
 const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'production', 'test').required(),
@@ -331,7 +330,7 @@ const envValidationSchema = Joi.object({
     ApmModule,
     FeatureFlagsModule,
     JobsModule,
-    BadgesModule,
+    SandboxModule,
     CommonModule,
     ThrottlerModule.forRoot([
       {
@@ -348,6 +347,11 @@ const envValidationSchema = Joi.object({
         name: 'rpc',
         ttl: 60000, // 1 minute
         limit: 10,
+      },
+      {
+        name: 'export',
+        ttl: 15 * 60 * 1000, // 15 minutes
+        limit: 6,
       },
     ]),
   ],
